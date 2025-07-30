@@ -1,0 +1,259 @@
+const { broadcast } = require("../websocket/socketManager");
+
+broadcast("game_started", { gameId, startTime, cryptoType });
+// sockets/manager.js
+
+let ioInstance = null;
+
+function setSocketInstance(io) {
+  ioInstance = io;
+}
+
+function broadcast(event, data) {
+  if (ioInstance) {
+    ioInstance.emit(event, data);
+  }
+}
+
+function emitToUser(socketId, event, data) {
+  if (ioInstance) {
+    ioInstance.to(socketId).emit(event, data);
+  }
+}
+
+module.exports = {
+  setSocketInstance,
+  broadcast,
+  emitToUser,
+};
+// server.js
+
+const { setSocketInstance } = require("./sockets/manager");
+
+// After initializing socket.io
+const io = socketIO(server, {
+  cors: {
+    origin: "*",
+  },
+});
+
+setSocketInstance(io);
+// websocket/socketManager.js
+
+let ioInstance = null;
+
+function setSocketInstance(io) {
+  ioInstance = io;
+}
+
+function broadcast(event, data) {
+  if (ioInstance) {
+    ioInstance.emit(event, data);
+  }
+}
+
+function emitToUser(socketId, event, data) {
+  if (ioInstance) {
+    ioInstance.to(socketId).emit(event, data);
+  }
+}
+
+module.exports = {
+  setSocketInstance,
+  broadcast,
+  emitToUser,
+};
+socket.on("broadcast", (message) => {
+  switch (message.type) {
+    case "GAME_STARTED":
+      // handle it
+      break;
+    case "MULTIPLIER_UPDATE":
+      // handle it
+      break;
+    case "CRASH":
+      // handle it
+      break;
+    // ... and so on
+  }
+});
+
+        //   clearInterval(intervalId);
+
+        //   await Game.findByIdAndUpdate(game._id, {
+        //     status: "ended",
+        //     crashMultiplier: crashPoint,
+        //   });
+
+        //   emitToAll("crash", { multiplier: crashPoint });
+
+        //   // Resolve bets
+        //   const bets = await Bet.find({ gameId: game._id });
+        //   for (const bet of bets) {
+        //     const wallet = await Wallet.findOne({ user: bet.user });
+        //     if (!wallet) continue;
+
+        //     if (bet.cashoutAt && bet.cashoutAt <= crashPoint) {
+        //       const winAmount = bet.amountUSD * bet.cashoutAt;
+        //       wallet.balances[bet.crypto] += winAmount;
+        //       bet.status = "won";
+        //       bet.payout = winAmount;
+        //     } else {
+        //       bet.status = "lost";
+        //       bet.payout = 0;
+        //     }
+
+        //     await wallet.save();
+        //     await bet.save();
+        //   }
+
+        //   resolve();
+
+
+
+
+
+
+        exports.getWallet = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Step 1: Find user by username
+    const user = await User.findOne({ username: userId });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Step 2: Find wallet by user ID
+    const wallet = await Wallet.findOne({ user: user._id }).populate("user");
+    if (!wallet) return res.status(404).json({ message: "Wallet not found" });
+
+    // Step 3: Get live prices
+    const prices = await getPrice(); // { BTC: ..., ETH: ... }
+
+    // Step 4: Calculate USD value
+    const usdEquivalent = {
+      BTC: wallet.balances.BTC * prices.BTC,
+      ETH: wallet.balances.ETH * prices.ETH,
+    };
+
+    // Step 5: Respond with data
+    res.json({
+      user: wallet.user.username,
+      balances: wallet.balances,
+      usdEquivalent,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching wallet", error: err.message });
+  }
+};
+Crash-Game-with-Crypto-API-and-WebSockets\crypto-crash-backend\utils\scripts\createMockUsers.js
+
+
+
+ currentGame = game;
+//       // Notify all clients
+//   broadcast({
+//     type: "GAME_STARTED",
+//     gameId: game._id,
+//     crashPoint,
+//     startTime: game.startTime,
+//     cryptoType: game.cryptoType,
+//   });
+
+
+
+// sockets/manager.js
+
+let ioInstance = null;
+
+function setSocketInstance(io) {
+  ioInstance = io;
+}
+
+function broadcast(event, data) {
+  if (ioInstance) {
+    ioInstance.emit(event, data);
+  }
+}
+
+function emitToUser(socketId, event, data) {
+  if (ioInstance) {
+    ioInstance.to(socketId).emit(event, data);
+  }
+}
+
+module.exports = {
+  setSocketInstance,
+  broadcast,
+  emitToUser,
+};
+// server.js
+
+const { setSocketInstance } = require("./sockets/manager");
+
+// After initializing socket.io
+const io = socketIO(server, {
+  cors: {
+    origin: "*",
+  },
+});
+
+setSocketInstance(io);
+const { broadcast } = require("../sockets/manager");
+
+broadcast("game_started", { gameId, startTime, cryptoType });
+currentGame = game;
+
+// Notify all clients
+broadcast({
+  type: "GAME_STARTED",
+  gameId: game._id,
+  crashPoint,
+  startTime: game.startTime,
+  cryptoType: game.cryptoType,
+});
+
+⏭️ Next Step
+Now that:
+
+Game creation (/game/start) is working ✅
+
+Mock users are created ✅
+
+Bets can be placed ✅
+
+Do you want to move on to the game loop logic, where:
+
+A countdown begins (e.g., 10 seconds),
+
+Random crash point is generated,
+
+WebSocket broadcasts status updates,
+
+And bets are resolved (win/loss, payout)?
+
+Let me know — I’ll implement that as the next complete phase. Just type:
+
+proceed with game loop or tell me exactly what you want next.,,
+Let me know if:
+
+You want me to refactor your Bet/Wallet models to fit this cleanly
+
+You want to add admin logs or WebSocket feedback for testing
+
+Shall we proceed to implement placeBet or user cashout logic next?
+{
+  user: ObjectId,
+  game: ObjectId,
+  amount: Number,
+  cryptoType: String,
+  cashOutMultiplier: Number,
+  status: 'pending' | 'won' | 'lost',
+  payout: Number
+}
+{
+  "username": "chandan",
+  "gameId":"68871d34319bc52154152d9c",
+  "amountUSD": 50
+}
+/api/history/latest
+http://localhost:5000/api/leaderboard/top

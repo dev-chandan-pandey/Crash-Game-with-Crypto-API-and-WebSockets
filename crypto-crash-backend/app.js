@@ -1,0 +1,21 @@
+const express = require("express");
+const cors = require("cors");
+const morgan = require("morgan");
+const walletRoutes = require("./routes/walletRoutes");
+const gameRoutes = require("./routes/gameRoutes");
+const betRoutes = require("./routes/betRoutes");
+const historyRoutes = require("./routes/history");
+const userRoutes = require('./routes/userRoutes');
+require("dotenv").config();
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(morgan("dev"));
+// Routes
+app.get("/", (req, res) => res.send("Crypto Crash Backend Running"));
+app.use("/api/wallet", walletRoutes);
+app.use("/api/game", gameRoutes);
+app.use("/api/bet", betRoutes);
+app.use("/api/history",historyRoutes);
+app.use('/api/users', userRoutes); 
+module.exports = app;
