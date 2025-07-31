@@ -6,7 +6,9 @@ export default function Leaderboard() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${process.env.BASE_URL}/api/history/recent`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/history/recent`)
+
+;
       const data = await res.json();
       if (data.success) {
         setGames(data.history);

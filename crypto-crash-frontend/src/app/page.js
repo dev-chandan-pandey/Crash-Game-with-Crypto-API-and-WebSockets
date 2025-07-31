@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
 import Leaderboard from './leaderboard';
-const socket = io(process.env.BASE_URL);
+const socket = io(process.env.NEXT_PUBLIC_BASE_URL);
+
 export default function CrashGame() {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
@@ -22,7 +23,7 @@ export default function CrashGame() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await axios.get(`${process.env.BASE_URL}/api/users`);
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_BASE_URL}/api/users`);
         setUsers(res.data);
         if (res.data.length > 0) {
           setSelectedUser(res.data[0].username);
@@ -90,7 +91,7 @@ export default function CrashGame() {
 
   const handleStartGame = async () => {
     try {
-      const res = await axios.post(`${process.env.BASE_URL}/api/game/start`, { cryptoType });
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_BASE_URL}/api/game/start`, { cryptoType });
       setGameId(res.data.game._id);
     } catch (err) {
       console.error('Error starting game:', err.response?.data || err.message);
@@ -103,7 +104,7 @@ export default function CrashGame() {
 
     try {
       const res = await axios.post(
-        `${process.env.BASE_URL}/api/bet/place`,
+        `${process.env.NEXT_PUBLIC_BASE_URL}/api/bet/place`,
         {
           username: selectedUser,
           gameId,
