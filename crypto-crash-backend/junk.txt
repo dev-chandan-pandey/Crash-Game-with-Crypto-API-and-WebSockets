@@ -257,3 +257,284 @@ Shall we proceed to implement placeBet or user cashout logic next?
 }
 /api/history/latest
 http://localhost:5000/api/leaderboard/top
+
+
+
+
+
+
+// const { seed } = require("./utils/scripts/createMockUsers");
+let currentGameId = null;
+let currentMultiplier = 1.0;
+let crashPoint = null;
+
+function setGameState(id, multiplier, crash) {
+  currentGameId = id;
+  currentMultiplier = multiplier;
+  crashPoint = crash;
+}
+
+function getGameState() {
+  return {
+    currentGameId,
+    currentMultiplier,
+    crashPoint,
+  };
+}
+
+module.exports = {
+  setGameState,
+  getGameState,
+};
+ const { currentGameId, currentMultiplier, crashPoint } = getCurrentGameState();
+const { getCurrentGameState } = require("./gameState");
+
+
+const { getCurrentGameState } = require("./gameState");
+const Bet = require("../models/Bet");
+const User = require("../models/User");
+
+async function handleCashout(socket, data) {
+  try {
+    const { userId } = data;
+    const { currentGameId, currentMultiplier, crashPoint } = getCurrentGameState();
+
+    console.log("💸 Handling cashout for userId:", userId);
+    console.log("Current game ID:", currentGameId);
+    console.log("Current multiplier:", currentMultiplier);
+    console.log("Crash point:", crashPoint);
+
+    if (!currentGameId || currentMultiplier >= crashPoint) {
+      return socket.emit("cashout_failed", { message: "Too late to cashout!" });
+    }
+
+    const bet = await Bet.findOne({
+      user: userId,
+      game: currentGameId,
+      status: "pending",
+    });
+
+    if (!bet) {
+      console.warn("No pending bet found for user:", userId);
+      return socket.emit("cashout_failed", { message: "No active bet found" });
+    }
+
+    const payout = bet.amountUSD * currentMultiplier;
+    bet.status = "cashed_out";
+    bet.cashOutMultiplier = currentMultiplier;
+    await bet.save();
+
+    const user = await User.findById(userId).populate("wallet");
+    user.wallet.balance += payout;
+    await user.wallet.save();
+
+    socket.emit("cashout_success", {
+      payout,
+      multiplier: currentMultiplier,
+      gameId: currentGameId,
+    });
+
+    console.log(`💸 User ${userId} cashed out at ${currentMultiplier}x`);
+  } catch (error) {
+    console.error("Cashout error:", error);
+    socket.emit("cashout_failed", { message: "Internal server error" });
+  }
+}
+
+module.exports = handleCashout;
+
+
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import io from 'socket.io-client';
+import axios from 'axios';
+import Dashboard from './dashboard';
+import Leaderboard from './leaderboard';
+
+const socket = io('http://localhost:5000');
+
+export default function CrashGame() {
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState('');
+  const [amount, setAmount] = useState(100);
+  const [cryptoType, setCryptoType] = useState('BTC');
+  const [gameId, setGameId] = useState(null);
+  const [multiplier, setMultiplier] = useState(1.0);
+  const [isGameRunning, setIsGameRunning] = useState(false);
+  const [activeBet, setActiveBet] = useState(null);
+  const [cashoutMessage, setCashoutMessage] = useState('');
+  const [status, setStatus] = useState<'waiting' | 'running' | 'crashed'>('waiting');
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/users');
+        setUsers(res.data);
+        if (res.data.length > 0) {
+          setSelectedUser(res.data[0].username);
+        }
+      } catch (err) {
+        console.error('Error fetching users:', err.response?.data || err.message);
+      }
+    };
+
+    fetchUsers();
+
+    if (!socket) return;
+
+    socket.on('connect', () => console.log('✅ Connected to WebSocket'));
+
+    socket.on('countdown', (data) => {
+      setCountdown(data.seconds);
+      setStatus('waiting');
+    });
+
+    socket.on('game_start', (data) => {
+      console.log('🎮 Game Started:', data);
+      setIsGameRunning(true);
+      setMultiplier(1.0);
+      setStatus('running');
+    });
+
+    socket.on('multiplier', (data) => {
+      setMultiplier(parseFloat(data.multiplier?.toFixed(2)));
+    });
+
+    socket.on('crash', (data) => {
+      console.log('💥 Game Crashed at:', data.crashPoint);
+      setIsGameRunning(false);
+      setStatus('crashed');
+      setCountdown(null);
+    });
+
+    socket.on('cashout_success', (data) => {
+      const payout = data.payout?.toFixed(2) ?? 'N/A';
+      setCashoutMessage(`✅ Cashed out at ${data.cashOutMultiplier}x for $${payout}`);
+      setActiveBet(null);
+    });
+
+    socket.on('cashout_failed', (data) => {
+      setCashoutMessage(data.message || '❌ Cashout failed. Game might have crashed.');
+    });
+
+    return () => {
+      socket.off('connect');
+      socket.off('game_start');
+      socket.off('countdown');
+      socket.off('multiplier');
+      socket.off('crash');
+      socket.off('cashout_success');
+      socket.off('cashout_failed');
+    };
+  }, []);
+
+  const handleStartGame = async () => {
+    try {
+      const res = await axios.post('http://localhost:5000/api/game/start', { cryptoType });
+      setGameId(res.data.game._id);
+    } catch (err) {
+      console.error('Error starting game:', err.response?.data || err.message);
+    }
+  };
+
+  const handlePlaceBet = async () => {
+    if (!gameId) return alert('Start the game first!');
+    if (!selectedUser) return alert('Please select a user!');
+
+    try {
+      const res = await axios.post(
+        'http://localhost:5000/api/bet/place',
+        {
+          username: selectedUser,
+          gameId,
+          amountUSD: amount,
+        }
+      );
+
+      setActiveBet(res.data.bet);
+      setCashoutMessage('');
+      alert('✅ Bet placed successfully!');
+    } catch (err) {
+      console.error('Error placing bet:', err.response?.data || err.message);
+    }
+  };
+
+  const handleCashOut = () => {
+    if (socket && activeBet) {
+      socket.emit('cashout', {
+        userId: activeBet.user,
+        gameId: activeBet.game,
+      });
+    }
+  };
+
+  return (
+    <div className="p-4 max-w-2xl mx-auto font-sans">
+      <h1 className="text-3xl font-bold mb-4 text-center">🚀 Crypto Crash Game</h1>
+
+      <div className="mb-4">
+        <label>Select User: </label>
+        <select
+          value={selectedUser}
+          onChange={(e) => setSelectedUser(e.target.value)}
+          className="border p-2 rounded"
+        >
+          <option value="">-- Choose a user --</option>
+          {users.map((user) => (
+            <option key={user._id} value={user.username}>
+              {user.username}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4">
+        <input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(Number(e.target.value))}
+          className="border p-2 rounded w-full"
+          placeholder="Bet Amount (USD)"
+        />
+        <button
+          onClick={handlePlaceBet}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Place Bet
+        </button>
+      </div>
+
+      <div className="text-center mb-6">
+        {status === 'waiting' && countdown !== null && (
+          <p className="text-yellow-500 text-lg">⏳ Game starts in {countdown}s</p>
+        )}
+        {status === 'running' && (
+          <p className="text-green-600 text-3xl font-bold">{multiplier.toFixed(2)}x</p>
+        )}
+        {status === 'crashed' && (
+          <p className="text-red-500 text-2xl font-semibold">💥 Crashed!</p>
+        )}
+      </div>
+
+      {isGameRunning && activeBet && (
+        <button
+          onClick={handleCashOut}
+          className="bg-red-500 text-white px-6 py-2 rounded block mx-auto"
+        >
+          💸 Cash Out
+        </button>
+      )}
+
+      {cashoutMessage && (
+        <div className="mt-4 text-center text-sm text-gray-700">{cashoutMessage}</div>
+      )}
+
+      <div className="mt-6">
+        <Dashboard />
+        <Leaderboard />
+      </div>
+    </div>
+  );
+}
