@@ -11,7 +11,7 @@ const server = http.createServer(app);
 // WebSocket
 const io = new Server(server, {
   cors: {
-    origin:process.env.BASE_URL,
+    origin:[process.env.BASE_URL,'https://crash-game-with-crypto-api-and-web-virid.vercel.app'],
     methods: ["GET", "POST"],
     credentials: true,
   },
